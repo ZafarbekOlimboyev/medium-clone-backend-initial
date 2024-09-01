@@ -28,7 +28,7 @@ services:
       - "5432"
     environment:
       - POSTGRES_USER=${DB_USER-medium_user}
-      - POSTGRES_PASSWORD=${DB_PASSWORD-122448}
+      - POSTGRES_PASSWORD=${DB_PASSWORD-medium_user_password}
       - POSTGRES_DB=${DB_NAME-medium_db}
     networks:
       - medium_network
