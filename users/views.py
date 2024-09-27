@@ -97,12 +97,18 @@ class LoginView(APIView):
     )
 )
 class UsersMe(generics.RetrieveAPIView, generics.UpdateAPIView):
-    http_method_names = ['get',]
+    http_method_names = ['get', 'patch']             # patch qo'shildi
     queryset = User.objects.filter(is_active=True)
+    parser_classes = [parsers.MultiPartParser]       # fayl yuklash uchun MultiPartParser qo'shildi
     permission_classes = (IsAuthenticated,)
 
     def get_object(self):
         return self.request.user
 
     def get_serializer_class(self):
+        if self.request.method == 'PATCH':
+            return UserUpdateSerializer
         return UserSerializer
+
+    def patch(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
