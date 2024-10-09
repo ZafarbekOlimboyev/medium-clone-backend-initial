@@ -8,10 +8,11 @@ from rest_framework.permissions import IsAuthenticated
 from .serializers import UserSerializer, LoginSerializer, UserUpdateSerializer, ValidationErrorSerializer, TokenResponseSerializer
 from .enums import TokenType
 from .services import SendEmailService, TokenService, UserService
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, update_session_auth_hash
 from django_redis import get_redis_connection
+from rest_framework.exceptions import ValidationError
 
-from .serializers import UserSerializer, LoginSerializer, ValidationErrorSerializer, TokenResponseSerializer
+from .serializers import UserSerializer, LoginSerializer, ValidationErrorSerializer, TokenResponseSerializer, ChangePasswordSerializer
 from drf_spectacular.utils import extend_schema, extend_schema_view
 
 User = get_user_model()
@@ -146,3 +147,36 @@ class UsersMe(generics.RetrieveAPIView, generics.UpdateAPIView):
 
         return super().partial_update(request, *args, **kwargs)
 
+
+@extend_schema_view(
+    put=extend_schema(
+        summary="Change user password",
+        request=ChangePasswordSerializer,
+        responses={
+            200: TokenResponseSerializer,
+            401: ValidationErrorSerializer
+        }
+    )
+)
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = ChangePasswordSerializer
+
+    def put(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = authenticate(
+            request,
+            username=request.user.username,
+            password=serializer.validated_data['old_password']
+        )
+
+        if user is not None:
+            user.set_password(serializer.validated_data['new_password'])
+            user.save()
+            update_session_auth_hash(request, user)
+            tokens = UserService.create_tokens(user, is_force_add_to_redis=True)
+            return Response(tokens)
+        else:
+            raise ValidationError("Eski parol xato.")
